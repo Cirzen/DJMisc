@@ -244,3 +244,17 @@ Describe "Remove-NullProperties" {
         ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase | Remove-NullProperties)  -eq ([System.Text.RegularExpressions.RegexOptions]::IgnoreCase )| Should -Be $true
     }
 }
+
+Describe "Test-NonTerminatingError" {
+    It "Has no mandatory parameters" {
+        Test-NonTerminatingError -ErrorAction SilentlyContinue
+    }
+    It "Populates an error record with given parameters" {
+        Test-NonTerminatingError -Message "Pester Message" -ErrorId "1234" -ErrorCategory WriteError -ErrorVariable pestererror -ErrorAction SilentlyContinue
+
+        $pestererror.Count | Should -Be 1
+        $pestererror[0].Exception.Message | Should -BeExactly "Pester Message"
+        $pestererror[0].CategoryInfo.Category | Should -Be "WriteError"
+        $pestererror[0].FullyQualifiedErrorId | Should -Be "1234,Test-NonTerminatingError"
+    }
+}

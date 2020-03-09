@@ -1873,3 +1873,19 @@ function Write-Maze
         }
     }
 }
+
+function Test-NonTerminatingError
+{
+    [CmdletBinding()]
+    param(
+        [string]$Message = "Non terminating error",
+        [string]$ErrorId = "Custom Error",
+        [System.Management.Automation.ErrorCategory]$ErrorCategory = "NotSpecified",
+        [object]$TargetObject = $null
+    )
+
+    $exception = [System.Exception]::new($Message)
+    $errorRecord = [System.Management.Automation.ErrorRecord]::new($exception, $ErrorId, $ErrorCategory, $TargetObject)
+
+    $PSCmdlet.WriteError($errorRecord)
+}
