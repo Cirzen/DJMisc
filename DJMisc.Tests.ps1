@@ -22,6 +22,22 @@ Describe "Get-HumanisedTimespan" {
     }
 }
 
+Describe "Get-HumanisedBytes" {
+    It "Respects the difference between powers of 2 and 10 for size prefixes" {
+        $b = 1015
+        Get-HumanisedBytes -Bytes $b | Should -Match " bytes$"
+        Get-HumanisedBytes -Bytes $b -PowersOfTen | Should -Match " Kb$"
+    }
+    It "Rounds to the next size up when zero remainder" {
+        $b = 1024
+        Get-HumanisedBytes -Bytes $b | Should -Match " kb$"
+    }
+
+    It "Respects the number of decimal places requested when over 1kb" {
+        
+    }
+}
+
 Describe "Convert-StringstoExactRegex" {
     It "Outputs a string with the AsString switch parameter" {
         Convert-StringsToExactRegex -String "a", "b" -AsString | Should BeOfType ([string])

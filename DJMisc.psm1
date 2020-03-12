@@ -1716,7 +1716,7 @@ function Get-HumanisedBytes
     $Threshold = [math]::pow($Radix, $Exponent)
     for ($i = 0; $i -lt $HumanSizes.Length; $i++)
     {
-        if ($DBytes -le $Threshold)
+        if ($DBytes -lt $Threshold)
         {
             break
         }
@@ -1888,4 +1888,26 @@ function Test-NonTerminatingError
     $errorRecord = [System.Management.Automation.ErrorRecord]::new($exception, $ErrorId, $ErrorCategory, $TargetObject)
 
     $PSCmdlet.WriteError($errorRecord)
+}
+
+function Add-ExpDays
+{
+    param([datetime]$StartDate)
+    $List = [System.Collections.Generic.List[pscustomobject]]::new()
+    for ($i = 1; $i -le 20; $i++)
+    {
+        for ($j = 1; $j -le 20; $j++)
+        {
+            $numdays = [math]::pow($i, $j)
+            $days = try { $StartDate.AddDays($numdays) } catch { [datetime]::MaxValue }
+            $weeks = try { $StartDate.AddDays($numdays * 7) } catch { [datetime]::MaxValue }
+            $List.Add([pscustomobject]@{"Exponent" = "$i^$j" ; Days = $days; Weeks = $weeks ; numdays = $numdays })
+        }
+    }
+
+    $StoLat = [timespan]::FromDays(36524)
+    $List | 
+    Where-Object { $_.Weeks -gt [datetime]::today -and $_.Days -lt [datetime]::Today.Add($StoLat) } |
+    Sort-Object -Property numdays |
+    Select-Object * -ExcludeProperty numdays
 }
