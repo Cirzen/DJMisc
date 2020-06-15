@@ -1911,3 +1911,83 @@ function Add-ExpDays
     Sort-Object -Property numdays |
     Select-Object * -ExcludeProperty numdays
 }
+
+function Get-DictionaryKey
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [IDictionary]
+        $Dictionary
+    )
+
+    ForEach ($key in $Dictionary.Keys)
+    {
+        Write-Output $key
+        if ($Dictionary[$key] -is [IDictionary])
+        {
+            return Get-DictionaryKey -Dictionary ($Dictionary[$key])
+        }
+    }
+}
+
+function Get-GzContent
+{
+    <#
+    .SYNOPSIS
+    Gets the content from a file compressed with Gzip
+    
+    .DESCRIPTION
+    Long description
+    
+    .PARAMETER Path
+    A test string of the path to the file to read
+    
+    .PARAMETER File
+    A FileInfo object (e.g. from Gt-ChildItem) of the file to read. Can be supplied from the pipeline
+    
+    .EXAMPLE
+    An example
+    
+    .NOTES
+    None
+    #>
+    [CmdletBinding(DefaultParameterSetName = "FromPath")]
+    param(
+    [Parameter(Mandatory=$true, ParameterSetName = "FromPath")]    
+    [string]
+    $Path,
+
+    [Parameter(Mandatory=$true, ParameterSetName = "FromFileInfo", ValueFromPipeline = $true)]
+    [System.IO.FileInfo]
+    $File
+    )
+    
+    [System.Io.FileInfo]$FileInfo
+    switch ($PsCmdlet.ParameterSetName)
+    {
+        "FromPath"
+        {
+            $Resolved = Resolve-Path $Path
+            $FileInfo = [System.IO.FileInfo]::new($Resolved.Path)
+        }
+        "FromFileInfo"
+        {
+            $FileInfo = $File
+        }
+    }
+
+    if ($FileInfo.Exists -eq $false)
+    {
+        throw [System.IO.FileNotFoundException]::new("Unable to find path $($FileInfo.Name)")
+    }
+
+    $fs = [system.io.filestream]::new($FileInfo.FullName, "open")
+    $gz = [System.IO.Compression.GZipStream]::new($fs, [System.IO.Compression.CompressionMode]::DeCompress)
+    $sr = [System.IO.StreamReader]::new($gz)
+    $sr.ReadToEnd()
+    $sr.Close()
+    $sr.Dispose()
+    $gz.Dispose()
+    $fs.Dispose()
+}
