@@ -2044,3 +2044,44 @@ function Get-LineEnding {
 
     return $result
 }
+
+function Get-WiFiProfiles {
+    [CmdletBinding()]
+    param (
+        [Switch]$PlainText
+    )
+
+    $profiles = if ($IsWindows) {
+        netsh wlan show profiles | Select-String -Pattern ':\s(.+)$' | ForEach-Object { $_.Matches.Groups[1].Value }
+    }
+    else {
+        nmcli -g NAME connection show
+    }
+
+    if (-not $profiles) {
+        Write-Warning "No WLAN profiles found."
+        return
+    }
+
+    foreach ($profile in $profiles) {
+        $key = if ($IsWindows) {
+            $profileDetails = (netsh wlan show profile name="$profile" key=clear | Out-String).Split([Environment]::NewLine)
+            $keyMatch = $profileDetails | Select-String -Pattern 'Key Content\s+:\s(.+)$'
+
+            if ($keyMatch) {
+                $keyMatch.Matches.Groups[1].Value
+            }
+            else {
+                [string]::Empty
+            }
+        }
+        else {
+            $key = (nmcli connection show "$profile" | Select-String -Pattern 'wifi-sec.key-mgmt\s+:\s+(.+)').Matches.Groups[1].Value
+         }
+
+        [PSCustomObject]@{
+            ProfileName = $profile
+            Key = if ($PlainText) {$key} else {$key | ConvertTo-SecureString -AsPlainText -Force}
+        }
+    }
+}
