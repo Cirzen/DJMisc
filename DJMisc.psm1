@@ -265,18 +265,25 @@ function Get-NoteProperty
 
         #List of headers not to include in the output
         [string[]]
-        $ExcludeProperty
+        $ExcludeProperty,
+
+        [switch]
+        $IncludeStandardProperty
     )
 
     Begin
     {
         $NoteProperty = [System.Management.Automation.PSMemberTypes]::NoteProperty
+        if ($IncludeStandardProperty)
+        {
+            $NoteProperty = $NoteProperty -bor [System.Management.Automation.PSMemberTypes]::Property
+        }
     }
 
     Process
     {
         $AL = New-Object System.Collections.ArrayList
-        ForEach ($header in ($Object | Get-Member | Where-Object {$_.MemberType -eq $NoteProperty}).Name)
+        ForEach ($header in ($Object | Get-Member | Where-Object {($_.MemberType -band $NoteProperty) -gt 0}).Name)
         {
             if ($ExcludeProperty -notcontains $header)
             {
@@ -1679,7 +1686,7 @@ function New-GenericList
     throw [System.NotImplementedException]::new()
 }
 
-function Get-HumanisedBytes 
+function Get-HumanisedBytes
 {
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
@@ -1944,7 +1951,7 @@ function Get-GzContent
     A test string of the path to the file to read
     
     .PARAMETER File
-    A FileInfo object (e.g. from Gt-ChildItem) of the file to read. Can be supplied from the pipeline
+    A FileInfo object (e.g. from Get-ChildItem) of the file to read. Can be supplied from the pipeline
     
     .EXAMPLE
     An example
@@ -1982,12 +1989,58 @@ function Get-GzContent
         throw [System.IO.FileNotFoundException]::new("Unable to find path $($FileInfo.Name)")
     }
 
-    $fs = [system.io.filestream]::new($FileInfo.FullName, "open")
-    $gz = [System.IO.Compression.GZipStream]::new($fs, [System.IO.Compression.CompressionMode]::DeCompress)
-    $sr = [System.IO.StreamReader]::new($gz)
-    $sr.ReadToEnd()
-    $sr.Close()
-    $sr.Dispose()
-    $gz.Dispose()
-    $fs.Dispose()
+    try {
+        $fileStream = [System.IO.FileStream]::new($FileInfo.FullName, "open")
+        $zipStream = [System.IO.Compression.GZipStream]::new(
+            $fileStream, [System.IO.Compression.CompressionMode]::DeCompress)
+        $streamReader = [System.IO.StreamReader]::new($zipStream)
+        $streamReader.ReadToEnd()
+        $streamReader.Close()
+    }
+    finally {
+        if ($null -ne $streamReader) {
+            $streamReader.Dispose()
+        }
+        if ($null -ne $zipStream) {
+            $zipStream.Dispose()
+        }
+        if ($null -ne $fileStream) {
+            $fileStream.Dispose()
+        }
+    }
+}
+
+class LineEnding {
+    [System.Nullable[string]]$LineEndingChars
+    [string]$Description
+
+    static [LineEnding] FromFile([string]$FilePath)
+    {
+        return Get-LineEnding -FilePath $FilePath
+    }
+}
+
+function Get-LineEnding {
+    param (
+        [string]$FilePath
+    )
+
+    $content = [System.IO.File]::ReadAllText($FilePath)
+
+    $result = [LineEnding]::new()
+
+    if ($content -match "`r`n") {
+        $result.LineEndingChars = "`r`n"
+        $result.Description = "CRLF"
+    } elseif ($content -match "`n") {
+        $result.LineEndingChars = "`n"
+        $result.Description = "LF"
+    } elseif ($content -match "`r") {
+        $result.LineEndingChars = "`r"
+        $result.Description = "CR"
+    } else {
+        $result.Description = "Unknown"
+    }
+
+    return $result
 }
